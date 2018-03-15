@@ -419,3 +419,5 @@ younger
 youngest
 your
 yours
+,
+.

@@ -4,18 +4,10 @@
 
 # LOG:
 # First thing I am going to do is to work on the text & sentence splitting.
+# Fixed split_sentences_to_words, now it returns a flat array and not an array inside another
+# Added calculate_candidate_scores
 
 import re
-
-
-def split_text_to_sentences(text):
-    return re.split(' *[\.\?!][\'"\)\]]* *', text)
-
-
-# base regex structure was made by jbernau (github username),
-def split_sentences_to_words(sentences):
-    regex = re.compile('(?u)' + '|'.join([r'\b' + word + r'(?![\w-])' for word in get_stop_words()]), re.IGNORECASE)
-    return [regex.split(sentence) for sentence in sentences]
 
 
 def get_stop_words():
@@ -26,7 +18,36 @@ def get_stop_words():
         return []
 
 
-# This is the text from Figure 1.1
-test_text = "Compatibility of systems of linear constraints over the set of natural numbers . Criteria of compatibility of a system of linear Diophantine equations, strict inequations, and nonstrict inequations are considered. Upper bounds for components of a minimal set of solutions and algorithms of construction of minimal generating sets of solutions for all types of systems are given. These criteria and the corresponding algorithms for constructing a minimal supporting set of solutions can be used in solving all the considered types of systems and systems of mixed types."
+# base regex structure was made by jbernau (github username)
+def get_candidates_from_text(text):
 
-print(split_sentences_to_words(split_text_to_sentences(test_text)))
+    sentences = re.split('/[^\.\!\?]*[\.\!\?]/g', text)
+    regex = re.compile('|'.join([r'\b' + word + r'(?![\w-])' for word in get_stop_words()]), re.IGNORECASE)
+
+    return [word.strip() for sen in sentences for word in re.split(regex, sen) if word != '' and len(word) > 1]
+
+
+# Calculates the score of each candidate phrase as the sum of each of it's word's scores
+def calculate_candidate_scores(candidates):
+
+    all_words = [word for candidate in candidates for word in re.split('\s+', candidate)]
+    frequency_dict = {word: 0 for word in all_words}
+    degree_dict = frequency_dict.copy()
+
+    for can in candidates:
+        words = re.split('\s+', can)
+        degree = len(words) - 1
+        for word in words:
+            frequency_dict[word] += 1
+            degree_dict[word] += degree
+
+    word_scores = {word: (frequency_dict[word] + degree_dict[word]) / (frequency_dict[word]) for word in all_words}
+
+    return {candidate: sum([word_scores[word] for word in re.split('\s+', candidate)]) for candidate in candidates}
+
+
+# This is the text from Figure 1.1
+test_text = "Compatibility of systems of linear constraints over the set of natural numbers. Criteria of compatibility of a system of linear Diophantine equations, strict inequations, and nonstrict inequations are considered. Upper bounds for components of a minimal set of solutions and algorithms of construction of minimal generating sets of solutions for all types of systems are given. These criteria and the corresponding algorithms for constructing a minimal supporting set of solutions can be used in solving all the considered types of systems and systems of mixed types."
+
+#print(get_candidates_from_text(test_text))
+print(calculate_candidate_scores(get_candidates_from_text(test_text)))
