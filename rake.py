@@ -42,12 +42,18 @@ def calculate_candidate_scores(candidates):
             degree_dict[word] += degree
 
     word_scores = {word: (frequency_dict[word] + degree_dict[word]) / (frequency_dict[word]) for word in all_words}
+    candidate_scores = {candidate: sum([word_scores[word] for word in re.split('\s+', candidate)]) for candidate in candidates}
 
-    return {candidate: sum([word_scores[word] for word in re.split('\s+', candidate)]) for candidate in candidates}
+    return sorted(candidate_scores.items(), key=lambda (key, value): value, reverse=True)
+
+
+def get_key_words(text):
+    try:
+        candidates = get_candidates_from_text(text)
+        return calculate_candidate_scores(candidates)
+    except IOError:
+        return []
 
 
 # This is the text from Figure 1.1
 test_text = "Compatibility of systems of linear constraints over the set of natural numbers. Criteria of compatibility of a system of linear Diophantine equations, strict inequations, and nonstrict inequations are considered. Upper bounds for components of a minimal set of solutions and algorithms of construction of minimal generating sets of solutions for all types of systems are given. These criteria and the corresponding algorithms for constructing a minimal supporting set of solutions can be used in solving all the considered types of systems and systems of mixed types."
-
-#print(get_candidates_from_text(test_text))
-print(calculate_candidate_scores(get_candidates_from_text(test_text)))
