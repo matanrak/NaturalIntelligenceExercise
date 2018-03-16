@@ -1,11 +1,11 @@
 from __future__ import print_function
 from urlparse import urlparse
 from random import *
-import glob, json, logging, os, socket, subprocess, sys, time, psutil, requests
+import glob, json, logging, os, socket, subprocess, time, psutil, requests
 
 '''
-This is a modified version of Lynten's corenlp python wrapper that works on mac without
-running the server as a sudo command
+This is a heavily modified version of Lynten's corenlp python wrapper that adds mac compatibility and fixes 
+numerous errors and bugs that are present when running on mac-os high sierra 
 
 Lynten's version: https://github.com/Lynten/stanford-corenlp/blob/master/stanfordcorenlp/corenlp.py
 '''
@@ -46,7 +46,7 @@ class StanfordCoreNLP:
 
         args = ' '.join([cmd, java_args, '-cp', class_path, java_class, '-port', str(self.port)])
 
-        with open(os.devnull, 'w'):
+        with open(os.devnull):
             out_file = None
 
             self.p = subprocess.Popen(args, shell=True, stdout=out_file, stderr=subprocess.STDOUT)
@@ -72,30 +72,29 @@ class StanfordCoreNLP:
         self.close()
 
     def close(self):
-        if hasattr(self, 'p'):
-            try:
-                parent = psutil.Process(self.p.pid)
-            except psutil.NoSuchProcess:
-                logging.info('No process: {}'.format(self.p.pid))
-                return
+        try:
+            parent = psutil.Process(self.p.pid)
+        except psutil.NoSuchProcess:
+            logging.info('No process: {}'.format(self.p.pid))
+            return
 
-            if self.class_path_dir not in ' '.join(parent.cmdline()):
-                logging.info('Process not in: {}'.format(parent.cmdline()))
-                return
+        if self.class_path_dir not in ' '.join(parent.cmdline()):
+            logging.info('Process not in: {}'.format(parent.cmdline()))
+            return
 
-            children = parent.children(recursive=True)
-            for process in children:
-                logging.info('Killing pid: {}, cmdline: {}'.format(process.pid, process.cmdline()))
-                process.kill()
+        children = parent.children(recursive=True)
+        for process in children:
+            logging.info('Killing pid: {}, cmdline: {}'.format(process.pid, process.cmdline()))
+            process.kill()
 
-            logging.info('Killing shell pid: {}, cmdline: {}'.format(parent.pid, parent.cmdline()))
-            parent.kill()
+        logging.info('Killing shell pid: {}, cmdline: {}'.format(parent.pid, parent.cmdline()))
+        parent.kill()
 
     def annotate(self, text):
         return requests.post(self.url, data=text.encode('utf-8')).text
 
     def word_tokenize(self, sentence, span=False):
-        r_dict = self._request('ssplit,tokenize', sentence)
+        r_dict = self._request('ssplit, tokenize', sentence)
         tokens = [token['word'] for s in r_dict['sentences'] for token in s['tokens']]
 
         # Whether return token span

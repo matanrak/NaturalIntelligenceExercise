@@ -5,40 +5,64 @@
 import re
 
 
-# base regex structure was made by jbernau (github username)
-def get_candidates_from_text(text):
+class Rake:
 
-    sentences = re.compile(u'[.!?,;:\t\\\\"\\(\\)\\\'\u2019\u2013]|\\s\\-\\s').split(text)
+    def __init__(self, text, nlp):
+        self.text = text
+        self.nlp = nlp
+        self.parsed = nlp.parse(text)
+        self.sentences = self.parsed['sentences']
 
-    # TODO (Soon) use corenlp to find candidates instead of the archaic stop word file method
+    def get_key_words(self):
+        try:
+            candidates = self.get_candidates_from_text()
+            return self.calculate_candidate_scores(candidates)
+        except UnicodeError:
+            return []
 
-    return []
+    def get_candidates_from_text(self):
 
+        candidates = []
 
-# Calculates the score of each candidate phrase as the sum of each of it's word's scores
-def calculate_candidate_scores(candidates):
+        for sentence in self.sentences:
+            for index in xrange(0, len(sentence['tokens'])):
 
-    all_words = [word for candidate in candidates for word in re.split('\s+', candidate)]
-    frequency_dict = {word: 0 for word in all_words}
-    degree_dict = frequency_dict.copy()
+                # Verifying that a word is a noun
+                if not sentence['tokens'][index]['pos'].startswith('N'):
+                    continue
 
-    for can in candidates:
-        words = re.split('\s+', can)
-        degree = len(words) - 1
-        for word in words:
-            frequency_dict[word] += 1
-            degree_dict[word] += degree
+                phrase = {sentence['tokens'][index]['word']: index}
+                phrase.update(
+                    {entity['dependentGloss']: entity['dependent']
+                     for entity in sentence['basicDependencies']
+                     if entity['governor'] - 1 is index
+                     and entity["dep"] in ['compound', 'amod']
+                     or sentence['tokens'][entity['dependent'] - 1]['pos'] is 'POS'
+                     })
 
-    word_scores = {word: (frequency_dict[word] + degree_dict[word]) / (frequency_dict[word]) for word in all_words}
-    candidate_scores = {candidate: sum([word_scores[word] for word in re.split('\s+', candidate)]) for candidate in candidates}
+                phrase = sorted(phrase.items(), key=lambda (key, value): value)
+                phrase = ' '.join([part[0] for part in phrase]).strip()
 
-    return sorted(candidate_scores.items(), key=lambda (key, value): value, reverse=True)
+                candidates.append(phrase)
 
+        return candidates
 
-def get_key_words(text):
-    try:
-        candidates = get_candidates_from_text(text)
-        print "can: ", candidates
-        return calculate_candidate_scores(candidates)
-    except UnicodeError:
-        return []
+    # Calculates the score of each candidate phrase as the sum of each of it's word's scores
+    @staticmethod
+    def calculate_candidate_scores(candidates):
+
+        all_words = [word for candidate in candidates for word in candidate.split()]
+        frequency_dict = {word: 0 for word in all_words}
+        degree_dict = frequency_dict.copy()
+
+        for can in candidates:
+            words = can.split()
+            degree = len(words) - 1
+            for word in words:
+                frequency_dict[word] += 1
+                degree_dict[word] += degree
+
+        scores = {word: (frequency_dict[word] + degree_dict[word]) / (frequency_dict[word]) for word in all_words}
+        candidate_scores = {candidate: sum([scores[word] for word in candidate.split()]) for candidate in candidates}
+
+        return sorted(candidate_scores.items(), key=lambda (key, value): value, reverse=True)
