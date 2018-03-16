@@ -21,10 +21,10 @@ def get_stop_words():
 # base regex structure was made by jbernau (github username)
 def get_candidates_from_text(text):
 
-    sentences = re.split('/[^\.\!\?]*[\.\!\?]/g', text)
+    sentences = re.compile(u'[.!?,;:\t\\\\"\\(\\)\\\'\u2019\u2013]|\\s\\-\\s').split(text)
     regex = re.compile('|'.join([r'\b' + word + r'(?![\w-])' for word in get_stop_words()]), re.IGNORECASE)
 
-    return [word.strip() for sen in sentences for word in re.split(regex, sen) if word != '' and len(word) > 1]
+    return [word.strip() for sen in sentences for word in regex.split(sen) if word != '' and len(word) > 1]
 
 
 # Calculates the score of each candidate phrase as the sum of each of it's word's scores
@@ -50,8 +50,9 @@ def calculate_candidate_scores(candidates):
 def get_key_words(text):
     try:
         candidates = get_candidates_from_text(text)
+        print "can: ", candidates
         return calculate_candidate_scores(candidates)
-    except IOError:
+    except UnicodeError:
         return []
 
 
