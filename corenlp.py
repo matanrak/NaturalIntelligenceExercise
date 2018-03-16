@@ -1,6 +1,7 @@
 from __future__ import print_function
+from urlparse import urlparse
 from random import *
-import glob, json, logging, os, urlparse, socket, subprocess, sys, time, psutil, requests
+import glob, json, logging, os, socket, subprocess, sys, time, psutil, requests
 
 '''
 This is a modified version of Lynten's corenlp python wrapper that works on mac without
@@ -91,21 +92,7 @@ class StanfordCoreNLP:
             parent.kill()
 
     def annotate(self, text):
-        r = requests.post(self.url, data=text.encode('utf-8'))
-        return r.text
-
-    def tregex(self, sentence, pattern):
-        tregex_url = self.url + '/tregex'
-        r_dict = self._request(tregex_url, pattern, "tokenize,ssplit,depparse,parse", sentence)
-        return r_dict
-
-    def tokensregex(self, sentence, pattern):
-        tokensregex_url = self.url + '/tokensregex'
-        return self._request(tokensregex_url, pattern, "tokenize,ssplit,depparse", sentence)
-
-    def semgrex(self, sentence, pattern):
-        semgrex_url = self.url + '/semgrex'
-        return self._request(semgrex_url, pattern, "tokenize,ssplit,depparse", sentence)
+        return requests.post(self.url, data=text.encode('utf-8')).text
 
     def word_tokenize(self, sentence, span=False):
         r_dict = self._request('ssplit,tokenize', sentence)
@@ -129,34 +116,25 @@ class StanfordCoreNLP:
                 tags.append(token['pos'])
         return list(zip(words, tags))
 
-    def ner(self, sentence):
-        r_dict = self._request('ner', sentence)
-        words = []
-        ner_tags = []
-        for s in r_dict['sentences']:
-            for token in s['tokens']:
-                words.append(token['word'])
-                ner_tags.append(token['ner'])
-        return list(zip(words, ner_tags))
+    def parse(self, sentence, as_json=True):
+        result = self._request('pos, parse', sentence)
+        if as_json:
+            return result
+        return [s['parse'] for s in result['sentences']][0]
 
-    def parse(self, sentence):
-        r_dict = self._request('pos,parse', sentence)
-        return [s['parse'] for s in r_dict['sentences']][0]
-
-    def dependency_parse(self, sentence):
-        r_dict = self._request('depparse', sentence)
-        return [(dep['dep'], dep['governor'], dep['dependent']) for s in r_dict['sentences'] for dep in
+    def dependency_parse(self, sentence, as_json=True):
+        result = self._request('depprase', sentence)
+        if as_json:
+            return result
+        return [(dep['dep'], dep['governor'], dep['dependent']) for s in result['sentences'] for dep in
                 s['basicDependencies']]
 
-    def _request(self, annotators=None, data=None, *args, **kwargs):
-        if sys.version_info.major >= 3:
-            data = data.encode('utf-8')
-
+    def _request(self, annotators='parse', data=None, *args, **kwargs):
         properties = {'annotators': annotators, 'outputFormat': 'json'}
         params = {'properties': str(properties), 'pipelineLanguage': 'en'}
         if 'pattern' in kwargs:
             params = {"pattern": kwargs['pattern'], 'properties': str(properties), 'pipelineLanguage': 'en'}
 
         logging.info(params)
-        r = requests.post(self.url, params=params, data=data, headers={'Connection': 'close'})
+        r = requests.post(self.url, data=data.encode('utf-8'), params=params)
         return json.loads(r.text)
