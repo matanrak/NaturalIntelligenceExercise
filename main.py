@@ -1,13 +1,10 @@
 import logging, os, json
 import corenlp, article_fetcher, rake
 
-nlp = None
-
 
 def main():
-    try:
 
-        main.nlp = corenlp.StanfordCoreNLP('stanford-corenlp', logging_level=logging.ERROR)
+    with corenlp.StanfordCoreNLP('stanford-corenlp') as nlp:
 
         articles = article_fetcher.fetch_feed()
 
@@ -19,17 +16,12 @@ def main():
 
                 text = articles[article]
 
-                rk = rake.Rake(text, main.nlp)
+                rk = rake.Rake(text, nlp)
                 key_words = rk.get_key_words()
 
                 print key_words
 
             i += 1
-
-
-    finally:
-        print "Shutting down"
-        main.nlp.close()
 
 
 if __name__ == '__main__':
