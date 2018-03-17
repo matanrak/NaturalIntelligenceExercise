@@ -4,8 +4,10 @@ from random import *
 import glob, json, logging, os, socket, subprocess, time, psutil, requests
 
 '''
-This is a heavily modified version of Lynten's corenlp python wrapper that adds mac compatibility and fixes 
-numerous errors and bugs that are present when running on mac-os high sierra 
+This is a heavily modified version of Lynten's corenlp python wrapper.
+
+This version is trimmed for my needs and fixes numerous mac compatibility bugs 
+that were present on mac-os high sierra
 
 Lynten's version: https://github.com/Lynten/stanford-corenlp/blob/master/stanfordcorenlp/corenlp.py
 '''
@@ -13,9 +15,7 @@ Lynten's version: https://github.com/Lynten/stanford-corenlp/blob/master/stanfor
 
 class StanfordCoreNLP:
 
-    # Because my mac wont allow python to check what ports are used I had to fallback to random port selection
-    # and pray to dear god it will work
-    def __init__(self, path, port=randint(9000, 65535)):
+    def __init__(self, path, port=9000):
 
         if not subprocess.call(['java', '-version'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT) == 0:
             raise RuntimeError('Java not found.')
@@ -24,7 +24,7 @@ class StanfordCoreNLP:
             raise IOError(str(path) + ' is not a directory.')
 
         self.port = port
-        self.memory = '4g'
+        self.memory = '8g'
         self.url = 'http://localhost:' + str(self.port)
         self.directory = os.path.normpath(path) + os.sep
 
@@ -71,13 +71,7 @@ class StanfordCoreNLP:
 
         parent.kill()
 
-    def parse(self, sentence):
-        return self._request('pos, parse', sentence)
-
-    def dependency_parse(self, sentence):
-        return self._request('depprase', sentence)
-
-    def _request(self, annotators='parse', data=None):
+    def parse(self, annotators='depprase', data=None):
         params = {'properties': str({'annotators': annotators, 'outputFormat': 'json'}), 'pipelineLanguage': 'en'}
         request = requests.post(self.url, data=data.encode('utf-8'), params=params)
         return json.loads(request.text)
