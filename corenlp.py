@@ -1,7 +1,7 @@
 from __future__ import print_function
 from urlparse import urlparse
-from random import *
-import glob, json, logging, os, socket, subprocess, time, psutil, requests
+from time import sleep
+import glob, json, logging, os, socket, subprocess, psutil, requests
 
 '''
 This is a heavily modified version of Lynten's corenlp python wrapper.
@@ -31,23 +31,24 @@ class StanfordCoreNLP:
         if len(glob.glob(self.directory + 'stanford-corenlp-[0-9].[0-9].[0-9]-models.jar')) <= 0:
             raise IOError('English file missing')
 
-        logging.info('Initializing native server...')
-        cmd = "java --add-modules java.se.ee"
-        java_args = "-Xmx{}".format(self.memory)
-        java_class = "edu.stanford.nlp.pipeline.StanfordCoreNLPServer"
+        cmd = "java --add-modules java.se.ee -Xmx4g -cp"
         class_path = '"{}*"'.format(self.directory)
+        java_class = 'edu.stanford.nlp.pipeline.StanfordCoreNLPServer'
+        properties = '-serverProperties default.properties'
+        args = ' '.join([cmd, class_path, java_class, '-port', str(self.port)])
 
-        args = ' '.join([cmd, java_args, '-cp', class_path, java_class, '-port', str(self.port)])
-
+        print (args)
+        print('Starting CoreNLP server')
         with open(os.devnull) as devnull:
+            # stdout=devnull
             self.process = subprocess.Popen(args, shell=True, stdout=devnull, stderr=subprocess.STDOUT)
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         host_name = urlparse(self.url).hostname
 
-        time.sleep(1)
+        sleep(1)
         while sock.connect_ex((host_name, self.port)):
-            time.sleep(1)
+            sleep(1)
 
     def __enter__(self):
         return self
@@ -71,7 +72,7 @@ class StanfordCoreNLP:
 
         parent.kill()
 
-    def parse(self, annotators='depprase', data=None):
+    def parse(self, annotators='pos', data=''):
         params = {'properties': str({'annotators': annotators, 'outputFormat': 'json'}), 'pipelineLanguage': 'en'}
         request = requests.post(self.url, data=data.encode('utf-8'), params=params)
         return json.loads(request.text)
